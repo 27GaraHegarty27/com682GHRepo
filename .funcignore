@@ -1,0 +1,27 @@
+# Do not include local development settings
+local.settings.json
+
+# Ignore build artifacts
+bin/
+obj/
+test/
+
+# Ignore modules (Azure will install runtime modules automatically)
+node_modules/
+
+# Ignore version control files
+.git/
+.gitignore
+
+# Ignore VS Code workspace files
+.vscode/
+
+# Ignore TypeScript files (if using ts)
+*.ts
+*.js.map
+tsconfig.json
+
+# Ignore Azurite emulator files
+__azurite_db*__.json
+__blobstorage__
+__queuestorage__
