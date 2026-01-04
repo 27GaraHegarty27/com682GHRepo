@@ -1,0 +1,418 @@
+// === Azure Logic App endpoints & storage account ===
+const API_UPLOAD_FILE_URL =
+  "https://prod-06.uksouth.logic.azure.com:443/workflows/20c264e418f94ba6be7214b2c0eecffe/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=SmI4O1IIGCA3sbQVfnvfVQ8DZDqU0M3PFx_PlCcjHps";
+
+const API_POSTS_CREATE_URL =
+  "https://prod-03.uksouth.logic.azure.com:443/workflows/2f5a84fe5dcd410f9bd90c863d4da62e/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=2vB3A6twCw-8TI9y4ZM4AkqmoJbBwu6EDL9_2diuBNI";
+
+const API_POSTS_LIST_URL =
+  "https://prod-01.uksouth.logic.azure.com:443/workflows/18c0c93b369b43648d04581e2a311cb5/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=2U3B0uYZP2fhImWgHHtSgPO_rUnxY2FwNwiOUlIqagk";
+
+const API_POSTS_GET_URL =
+  "https://prod-23.uksouth.logic.azure.com/workflows/b571a77b0c694468a9af4e5be1c43f67/triggers/When_an_HTTP_request_is_received/paths/invoke/posts/%7Bid%7D/%7Bpk%7D?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=mfxfsar2Te2kqYuXn3hVPSG_zlh5MoXuU5I73cYugzM";
+
+const API_POSTS_UPDATE_URL =
+  "https://prod-10.uksouth.logic.azure.com/workflows/a85844d9611d488cb3a6c7d04f8c5a17/triggers/When_an_HTTP_request_is_received/paths/invoke/posts/%7Bid%7D/%7Bpk%7D?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=tKjJ_tH2FnroTWc4waEKguf5aRrLH24Zv9o-LLTYP8A";
+
+const API_POSTS_DELETE_URL =
+  "https://prod-57.uksouth.logic.azure.com/workflows/c818d15f4dd049659e070e2b4f5df223/triggers/When_an_HTTP_request_is_received/paths/invoke/posts/%7Bid%7D/%7Bpk%7D?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=hnqMMLPZxXLhzEjGTBNjObAKemtoEL1CgQPI0CPs1Ps";
+
+const BLOB_ACCOUNT = "https://storcom682.blob.core.windows.net";
+
+// ================================
+// jQuery handlers
+// ================================
+$(document).ready(function () {
+  console.log("app.js loaded ✅");
+
+  // Existing buttons
+  $("#retImages").on("click", function () {
+    console.log("View Images clicked");
+    getImages();
+  });
+
+  $("#subNewForm").on("click", function () {
+    console.log("Submit clicked");
+    submitNewAsset();
+  });
+
+  // NEW: Get single post button
+  // (Use delegated binding so it works even if HTML is inserted later)
+  $(document).on("click", "#btnGetPost", function () {
+    console.log("Get Post clicked ✅");
+    getPostFromInput();
+  });
+
+  // Optional: clear single post UI
+  $(document).on("click", "#btnClearPost", function () {
+    console.log("Clear clicked");
+    $("#getPostIdInput").val("");
+    $("#SinglePostResult").empty();
+  });
+
+  // Optional: pressing Enter in the input triggers Get
+  $(document).on("keypress", "#getPostIdInput", function (e) {
+    if (e.which === 13) {
+      e.preventDefault();
+      console.log("Enter pressed in getPostIdInput");
+      getPostFromInput();
+    }
+  });
+
+  // Optional: click card to open the media link
+  $("#ImageList").on("click", ".media-card", function (e) {
+    const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : "";
+    if (tag === "a" || tag === "img" || tag === "button" || tag === "input") return;
+
+    const id = $(this).data("id");
+    const pk = $(this).data("pk") || id;
+
+    console.log("Card clicked, calling GET for:", { id, pk });
+
+    getPostById(id, pk)
+      .done(function (res) {
+        const doc = normalizeDocResponse(res);
+        if (!doc) {
+          alert("Post not found.");
+          return;
+        }
+        const blobUrl = getBlobUrlFromDoc(doc);
+        if (blobUrl) window.open(blobUrl, "_blank", "noopener");
+      })
+      .fail(function (xhr) {
+        console.error("GET post failed:", xhr.status, xhr.responseText);
+        alert("GET post failed. See console.");
+      });
+  });
+});
+
+// ================================
+// Upload new asset
+// ================================
+function submitNewAsset() {
+  const video_id =
+    (crypto.randomUUID && crypto.randomUUID()) ||
+    "vid-" + Date.now() + "-" + Math.floor(Math.random() * 100000);
+
+  const file = $("#UpFile")[0].files[0];
+  if (!file) {
+    alert("Please choose a file first.");
+    return;
+  }
+
+  const fileName = $("#FileName").val() || file.name;
+  const userId = $("#userID").val();
+  const userName = $("#userName").val();
+  const title = fileName;
+
+  const uploadData = new FormData();
+  uploadData.append("FileName", fileName);
+  uploadData.append("userID", userId);
+  uploadData.append("userName", userName);
+  uploadData.append("video_id", video_id);
+  uploadData.append("File", file);
+
+  $.ajax({
+    url: API_UPLOAD_FILE_URL,
+    data: uploadData,
+    cache: false,
+    enctype: "multipart/form-data",
+    contentType: false,
+    processData: false,
+    type: "POST",
+    success: function (uploadRes) {
+      console.log("Upload response:", uploadRes);
+
+      const postBody = {
+        video_id: video_id,
+        userId: userId,
+        title: title,
+        blobContainer: uploadRes.blobContainer,
+        blobName: uploadRes.blobName
+      };
+
+      $.ajax({
+        url: API_POSTS_CREATE_URL,
+        type: "POST",
+        contentType: "application/json",
+        data: JSON.stringify(postBody),
+        success: function (postRes) {
+          console.log("Post created:", postRes);
+          alert("Uploaded + post created successfully!");
+          getImages(); // refresh list
+        },
+        error: function (xhr, status, err) {
+          console.error("Post create failed:", status, err, xhr?.responseText);
+          alert("Upload worked, but creating the post failed. See console.");
+        }
+      });
+    },
+    error: function (xhr, status, err) {
+      console.error("Upload failed:", status, err, xhr?.responseText);
+      alert("Upload failed — see console for details.");
+    }
+  });
+}
+
+// ================================
+// List posts (View Images)
+// ================================
+function getImages() {
+  const $list = $("#ImageList");
+  $list
+    .addClass("media-grid")
+    .html('<div class="spinner-border" role="status"><span>Loading...</span></div>');
+
+  $.ajax({
+    url: API_POSTS_LIST_URL,
+    type: "GET",
+    dataType: "json",
+    success: function (data) {
+      console.log("Raw data received (LIST):", data);
+
+      const items = Array.isArray(data)
+        ? data
+        : (data && Array.isArray(data.Documents) ? data.Documents : []);
+
+      if (!items.length) {
+        $list.html("<p>No media found.</p>");
+        return;
+      }
+
+      let videoCounter = 0;
+      const cards = [];
+
+      $.each(items, function (_, val) {
+        try {
+          const id = val.video_id || val.id;
+          const userId = val.userId || "";
+          const pk = id; // IMPORTANT: your GET flow is /posts/{id}/{pk} — you’re using pk=id
+          const title = val.title || val.blobName || "(untitled)";
+          const status = val.status || "unknown";
+
+          const blobUrl = getBlobUrlFromDoc(val);
+          if (!blobUrl) throw new Error("Missing blobUrl and blob metadata");
+
+          const isVideo = isLikelyVideo({ url: blobUrl, fileName: val.blobName });
+
+          if (isVideo) {
+            videoCounter++;
+            const label = `video${videoCounter}`;
+
+            cards.push(`
+              <div class="media-card" data-id="${escapeHtml(id)}" data-pk="${escapeHtml(pk)}">
+                <div class="media-thumb">
+                  <a class="video-link" href="${blobUrl}" target="_blank" rel="noopener">${label}</a>
+                </div>
+                <div class="media-body">
+                  <span class="media-title">${escapeHtml(title)}</span>
+                  <div>User: ${escapeHtml(userId || "(unknown)")}</div>
+                  <div>Status: ${escapeHtml(status)}</div>
+                </div>
+              </div>
+            `);
+          } else {
+            cards.push(`
+              <div class="media-card" data-id="${escapeHtml(id)}" data-pk="${escapeHtml(pk)}">
+                <div class="media-thumb">
+                  <img src="${blobUrl}"
+                       alt="${escapeHtml(title)}"
+                       onerror="imageFallbackToLink(this,'${blobUrl}','Open media')" />
+                </div>
+                <div class="media-body">
+                  <span class="media-title">${escapeHtml(title)}</span>
+                  <div>User: ${escapeHtml(userId || "(unknown)")}</div>
+                  <div>Status: ${escapeHtml(status)}</div>
+                  <div class="image-error"></div>
+                </div>
+              </div>
+            `);
+          }
+        } catch (err) {
+          console.error("Error building card:", err, val);
+          cards.push(`
+            <div class="media-card">
+              <div class="media-body">
+                <span class="media-title" style="color:#b91c1c;">Error displaying this item</span>
+              </div>
+            </div>
+          `);
+        }
+      });
+
+      $list.html(cards.join(""));
+    },
+    error: function (xhr, status, error) {
+      console.error("Error fetching media:", status, error, xhr?.responseText);
+      $list.html("<p style='color:red;'>Error loading media. Check console.</p>");
+    }
+  });
+}
+
+// ================================
+// GET single post (Get Post button)
+// ================================
+function getPostFromInput() {
+  const id = ($("#getPostIdInput").val() || "").trim();
+  if (!id) {
+    alert("Paste an id/video_id first.");
+    return;
+  }
+
+  const pk = id; // your Logic App uses pk = id
+  $("#SinglePostResult").html(
+    '<div class="spinner-border" role="status"><span>Loading...</span></div>'
+  );
+
+  console.log("calling GET:", id, pk);
+
+  $.ajax({
+    url: API_POSTS_GET_URL.replace("%7Bid%7D", encodeURIComponent(id)).replace("%7Bpk%7D", encodeURIComponent(pk)),
+    type: "GET",
+    dataType: "json",
+    success: function (data) {
+      console.log("Raw data received (GET):", data);
+
+      // Your Logic App returns an array with 1 object
+      const doc = Array.isArray(data) ? data[0] : data;
+      if (!doc) {
+        $("#SinglePostResult").html("<p style='color:#b91c1c;'>Post not found.</p>");
+        return;
+      }
+
+      const blobUrl =
+        doc.blobUrl ||
+        (doc.blobContainer && doc.blobName
+          ? `${BLOB_ACCOUNT.replace(/\/+$/g, "")}/${doc.blobContainer}/${doc.blobName}`
+          : "");
+
+      if (!blobUrl) {
+        $("#SinglePostResult").html("<pre>" + escapeHtml(JSON.stringify(doc, null, 2)) + "</pre>");
+        return;
+      }
+
+      const title = doc.title || doc.blobName || doc.id || "(untitled)";
+      const userId = doc.userId || "(unknown)";
+      const status = doc.status || "(unknown)";
+      const isVideo = isLikelyVideo({ url: blobUrl, fileName: doc.blobName });
+
+      const html = `
+        <div class="media-card">
+          <div class="media-thumb">
+            ${
+              isVideo
+                ? `<a class="video-link" href="${blobUrl}" target="_blank" rel="noopener">Open media</a>`
+                : `<img src="${blobUrl}"
+                       alt="${escapeHtml(title)}"
+                       onerror="imageFallbackToLink(this,'${blobUrl}','Open media')" />`
+            }
+          </div>
+          <div class="media-body">
+            <span class="media-title">${escapeHtml(title)}</span>
+            <div><b>User:</b> ${escapeHtml(userId)}</div>
+            <div><b>Status:</b> ${escapeHtml(status)}</div>
+            <div style="margin-top:8px;">
+              <a class="video-link" href="${blobUrl}" target="_blank" rel="noopener">Open in new tab</a>
+            </div>
+          </div>
+        </div>
+      `;
+
+      $("#SinglePostResult").html(html);
+    },
+    error: function (xhr) {
+      console.error("GET post failed:", xhr.status, xhr.responseText);
+      $("#SinglePostResult").html(
+        `<p style="color:#b91c1c;">GET failed (${xhr.status}). Check console.</p>`
+      );
+    }
+  });
+}
+
+function buildPostsGetUrl(id, pk) {
+  if (!id) throw new Error("Missing id");
+
+  const safeId = encodeURIComponent(id);
+  const safePk = encodeURIComponent(pk || id);
+
+  // Your constant contains encoded placeholders (%7Bid%7D, %7Bpk%7D)
+  // but we also support raw "{id}" "{pk}" just in case.
+  return API_POSTS_GET_URL
+    .replace("%7Bid%7D", safeId)
+    .replace("%7Bpk%7D", safePk)
+    .replace("{id}", safeId)
+    .replace("{pk}", safePk);
+}
+
+function getPostById(id, pk) {
+  const url = buildPostsGetUrl(id, pk);
+  console.log("Calling GET:", url);
+
+  return $.ajax({
+    url: url,
+    type: "GET",
+    dataType: "json"
+  });
+}
+
+function normalizeDocResponse(res) {
+  if (!res) return null;
+
+  // some flows return { Documents: [...] }
+  if (res && Array.isArray(res.Documents)) return res.Documents[0] || null;
+
+  // some return array
+  if (Array.isArray(res)) return res[0] || null;
+
+  // else assume it's the doc
+  return res;
+}
+
+function getBlobUrlFromDoc(doc) {
+  if (!doc) return "";
+
+  return (
+    doc.blobUrl ||
+    (doc.blobContainer && doc.blobName
+      ? `${BLOB_ACCOUNT.replace(/\/+$/g, "")}/${doc.blobContainer}/${doc.blobName}`
+      : "")
+  );
+}
+
+// ================================
+// Helpers
+// ================================
+function isLikelyVideo({ contentType, url, fileName }) {
+  const ct = (contentType || "").toLowerCase();
+  if (ct.startsWith("video/")) return true;
+  const target = ((url || "") + " " + (fileName || "")).toLowerCase();
+  return /\.(mp4|m4v|webm|og[gv]|mov|avi)(\?|#|$)/.test(target);
+}
+
+function imageFallbackToLink(imgEl, url, label) {
+  const card = imgEl.closest(".media-card");
+  if (!card) return;
+  const thumb = card.querySelector(".media-thumb");
+  const errMsg = card.querySelector(".image-error");
+
+  if (thumb) {
+    thumb.innerHTML = `<a href="${url}" target="_blank" rel="noopener" class="video-link">${label || url}</a>`;
+  }
+  if (errMsg) {
+    errMsg.textContent = "Image failed to load — opened as link instead.";
+    errMsg.style.display = "block";
+  }
+}
+
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+//Submit
+//get list
+//get id

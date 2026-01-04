@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Football Talent Scouting Platform - Upload</title>
+
+    <link rel="stylesheet" type="text/css" href="CSS/bootstrap.min.css" />
+
+    <style>
+      :root { --brand:#0b72d0; --brand2:#0a5fb0; --panel:#ffffff; --bg:#f4f7fb; }
+      body { background: var(--bg); }
+
+      .topbar {
+        background: linear-gradient(0deg, var(--brand2), var(--brand));
+        color: #fff;
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin-top: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .topbar .title { font-size: 18px; font-weight: 700; margin: 0; text-align: center; flex: 1; }
+      .topbar .navbtns { display: flex; gap: 10px; }
+      .navbtns a {
+        background: rgba(255,255,255,.18);
+        color: #fff;
+        text-decoration: none;
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-weight: 600;
+        display: inline-block;
+      }
+      .navbtns a:hover { background: rgba(255,255,255,.28); }
+
+      .panel {
+        background: var(--panel);
+        border-radius: 12px;
+        padding: 16px;
+        margin-top: 16px;
+        box-shadow: 0 1px 3px rgba(0,0,0,.08);
+        border: 1px solid #e5e7eb;
+      }
+
+      .footerbar {
+        margin-top: 16px;
+        background: linear-gradient(0deg, var(--brand2), var(--brand));
+        border-radius: 8px;
+        padding: 14px;
+        text-align: center;
+      }
+      .footerbar a { color:#fff; text-decoration:none; font-weight:700; }
+    </style>
+
+    <script type="text/javascript" src="JS/jquery-3.6.0.min.js"></script>
+    <script type="text/javascript" src="JS/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="JS/app.js"></script>
+  </head>
+
+  <body>
+    <div class="container" style="max-width: 980px;">
+      <!-- Top Bar -->
+      <div class="topbar">
+        <div class="navbtns" style="justify-content:flex-end;">
+          <a href="manage.html">Go to View and Manage</a>
+        </div>
+
+        <h1 class="title">Football Talent Scouting Platform</h1>
+
+        <div class="navbtns" style="justify-content:flex-end;">
+          <a href="manage.html">Go to View and Manage</a>
+        </div>
+      </div>
+
+      <!-- Top Bar -->
+      <div class="topbar">
+       <h1 class="title">Upload Page</h1>
+      </div>
+
+      <!-- Upload panel -->
+      <div class="panel">
+        <h5 style="font-weight:800;">Add Media</h5>
+        <p class="text-muted" style="margin-top:-6px;">Upload an Image or Video</p>
+
+        <form style="font-size: 10pt;" id="newAssetForm">
+          <div class="mb-3">
+            <label for="FileName" class="form-label">File Name</label>
+            <input type="text" class="form-control" id="FileName" />
+          </div>
+
+          <div class="mb-3">
+            <label for="userID" class="form-label">User Id</label>
+            <input type="text" class="form-control" id="userID" />
+          </div>
+
+          <div class="mb-3">
+            <label for="userName" class="form-label">User Name</label>
+            <input type="text" class="form-control" id="userName" />
+          </div>
+
+          <div class="mb-3">
+            <label for="UpFile" class="form-label">File to Upload</label>
+            <input type="file" class="form-control" id="UpFile" />
+          </div>
+
+          <button type="button" id="subNewForm" class="btn btn-primary">
+            Submit
+          </button>
+        </form>
+      </div>
+
+      <!-- Bottom Bar -->
+      <div class="footerbar">
+        <a href="manage.html">Upload Page</a>
+      </div>
+    </div>
+  </body>
+</html>

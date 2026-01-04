@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Football Talent Scouting Platform - Manage</title>
+
+    <link rel="stylesheet" type="text/css" href="CSS/bootstrap.min.css" />
+
+    <style>
+      :root {
+        --brand: #0b72d0;
+        --brand2: #0a5fb0;
+        --panel: #ffffff;
+        --bg: #f4f7fb;
+      }
+      body {
+        background: var(--bg);
+      }
+
+      .topbar {
+        background: linear-gradient(0deg, var(--brand2), var(--brand));
+        color: #fff;
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin-top: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .topbar .title {
+        font-size: 18px;
+        font-weight: 800;
+        margin: 0;
+        text-align: center;
+        flex: 1;
+      }
+      .navbtns {
+        display: flex;
+        gap: 10px;
+      }
+      .navbtns a {
+        background: rgba(255, 255, 255, 0.18);
+        color: #fff;
+        text-decoration: none;
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-weight: 700;
+      }
+      .navbtns a:hover {
+        background: rgba(255, 255, 255, 0.28);
+      }
+
+      .panel {
+        background: var(--panel);
+        border-radius: 12px;
+        padding: 16px;
+        margin-top: 16px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        border: 1px solid #e5e7eb;
+      }
+
+      /* Hide the whole stage on first load */
+      #stagePanel {
+        display: none;
+      }
+
+      /* ===========================
+         MAIN FEED / ALL MEDIA (STACKED)
+         =========================== */
+      #ImageList.media-grid {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 16px !important;
+        align-items: stretch !important;
+        margin-top: 12px !important;
+      }
+
+      #ImageList {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        align-items: stretch;
+        margin-top: 12px;
+      }
+
+      #ImageList .media-card,
+      #ImageList .card {
+        width: 100% !important;
+        max-width: 820px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+      }
+
+      .media-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+        background: #fff;
+        cursor: pointer;
+      }
+
+      .media-thumb {
+        width: 100%;
+        height: auto;
+        background: #f3f4f6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        padding: 12px;
+      }
+
+      .media-thumb img {
+        width: 100%;
+        height: auto;
+        max-height: 420px;
+        object-fit: contain;
+        display: block;
+        border-radius: 8px;
+      }
+
+      #ImageList img.card-img-top {
+        width: 100% !important;
+        height: auto !important;
+        max-height: 420px !important;
+        object-fit: contain !important;
+        background: #f3f4f6;
+      }
+
+      /* Center the title/status/hint text under each post (Bootstrap cards OR your custom markup) */
+      #ImageList .card-body,
+      #ImageList .media-body {
+        text-align: center !important;
+      }
+
+      #ImageList .card-title,
+      #ImageList .media-title {
+        text-align: center !important;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      #ImageList .card-text,
+      #ImageList small,
+      #ImageList p,
+      #ImageList .hint {
+        text-align: center !important;
+      }
+
+      .hint {
+        font-size: 12px;
+        color: #6b7280;
+      }
+
+      /* ===========================
+         STAGE (CENTRE DISPLAY)
+         =========================== */
+      .stage {
+        display: grid;
+        grid-template-columns: 180px 1fr 180px;
+        gap: 16px;
+        align-items: start;
+      }
+      @media (max-width: 992px) {
+        .stage {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* LOGO BOX: no blue background, image fills the whole box */
+      .logoBox {
+        height: 120px;
+        border-radius: 10px;
+        background: transparent; /* remove blue */
+        display: flex;          /* centers image if it doesn't fill for any reason */
+        align-items: center;
+        justify-content: center;
+        padding: 0;             /* remove inner padding so image can fill */
+        overflow: hidden;       /* keep rounded corners clean */
+      }
+
+      .logoBox img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;      /* fills the box fully (no background visible) */
+        display: block;
+      }
+
+      .centerBox {
+        background: #eef2f7;
+        border: 1px solid #d1d5db;
+        border-radius: 12px;
+        overflow: hidden;
+      }
+
+      .centerMediaArea {
+        min-height: 260px;
+        background: #d9d9d9;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+      }
+
+      .centerMediaArea #SinglePostResult {
+        width: 100%;
+      }
+
+      .centerMediaArea img {
+        max-width: 100% !important;
+        height: auto !important;
+        object-fit: contain !important;
+      }
+
+      .centerCaption {
+        background: #e5e7eb;
+        padding: 10px 14px;
+        border-top: 1px solid #d1d5db;
+        font-weight: 700;
+        text-align: center;
+      }
+
+      .centerComments {
+        background: #d9d9d9;
+        padding: 16px;
+        border-top: 1px solid #d1d5db;
+        text-align: center;
+      }
+    </style>
+
+    <script type="text/javascript" src="JS/jquery-3.6.0.min.js"></script>
+    <script type="text/javascript" src="JS/bootstrap.bundle.min.js"></script>
+    <!-- Leave app.js untouched -->
+    <script type="text/javascript" src="JS/app.js"></script>
+  </head>
+
+  <body>
+    <div class="container" style="max-width: 1200px">
+      <!-- Top bar + navigation -->
+      <div class="topbar">
+        <div class="navbtns">
+          <a href="upload.html">Go to Upload</a>
+        </div>
+
+        <h1 class="title">Football Talent Scouting Platform</h1>
+
+        <div class="navbtns">
+          <a href="upload.html">Go to Upload </a>
+        </div>
+      </div>
+
+      <div class="topbar">
+        <h1 class="title">View and Manage Page</h1>
+      </div>
+
+      <!-- Controls -->
+      <div class="panel">
+        <div
+          style="
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+          "
+        >
+          <div>
+            <button id="retImages" type="button" class="btn btn-primary">
+              Main Feed
+            </button>
+          </div>
+        </div>
+
+        <!-- Get one post -->
+        <div
+          class="mt-3 p-3"
+          style="border: 1px dashed #d1d5db; border-radius: 12px"
+        >
+          <div style="font-weight: 900">Get a Single Post</div>
+
+          <div class="row g-2 align-items-center mt-2">
+            <div class="col-12 col-md-8">
+              <input
+                id="getPostIdInput"
+                type="text"
+                class="form-control"
+                placeholder="Enter a Posts ID"
+              />
+            </div>
+            <div class="col-12 col-md-4" style="display: flex; gap: 8px">
+              <button
+                id="btnGetPost"
+                type="button"
+                class="btn btn-outline-primary"
+                style="flex: 1"
+              >
+                Get Post
+              </button>
+              <button
+                id="btnClearGetPost"
+                type="button"
+                class="btn btn-outline-secondary"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage (HIDDEN on load; shown automatically when a post is rendered) -->
+      <div id="stagePanel" class="panel">
+        <div class="stage">
+          <div class="logoBox">
+            <img src="images/logo.jpg" alt="Football Talent Scouting Logo" />
+          </div>
+
+          <div class="centerBox">
+            <div class="centerMediaArea">
+              <!-- app.js renders into this -->
+              <div id="SinglePostResult"></div>
+            </div>
+
+            <!-- placeholders for later work -->
+            <div class="centerCaption">Caption (coming soon)</div>
+            <div class="centerComments">
+              <div style="font-size: 22px; font-weight: 900">
+                Comments (coming soon)
+              </div>
+            </div>
+          </div>
+
+          <div class="logoBox">
+            <img src="images/logo.jpg" alt="Football Talent Scouting Logo" />
+          </div>
+        </div>
+
+        <div class="hint mt-3">
+          Tip: click any card in the feed below to load it into the centre
+          stage.
+        </div>
+      </div>
+
+      <!-- Feed -->
+      <div class="panel">
+        <div style="font-weight: 900">All Media</div>
+        <div id="ImageList">
+          <div class="hint">Click “Main Feed” to load the feed.</div>
+        </div>
+      </div>
+
+      <div
+        class="panel"
+        style="
+          background: linear-gradient(0deg, var(--brand2), var(--brand));
+          color: #fff;
+          text-align: center;
+          font-weight: 900;
+        "
+      >
+        View and Manage Page
+      </div>
+    </div>
+
+    <!-- Show stage when app.js renders a post -->
+    <script>
+      (function () {
+        const stagePanel = document.getElementById("stagePanel");
+        const singlePost = document.getElementById("SinglePostResult");
+
+        if (!stagePanel || !singlePost) return;
+
+        const showStage = () => {
+          const hasContent =
+            singlePost.innerHTML && singlePost.innerHTML.trim().length > 0;
+          if (hasContent) stagePanel.style.display = "block";
+        };
+
+        const observer = new MutationObserver(() => showStage());
+        observer.observe(singlePost, { childList: true, subtree: true });
+
+        document.addEventListener("click", (e) => {
+          const t = e.target;
+          if (!t) return;
+          if (t.id === "btnGetPost") showStage();
+          if (t.id === "retImages") showStage();
+        });
+      })();
+    </script>
+  </body>
+</html>

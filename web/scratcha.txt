@@ -1,0 +1,88 @@
+// === Retrieve and render media list (grid + numbered video links) ===   -  original
+function getImages() {
+  const $list = $("#ImageList");
+  $list
+    .addClass("media-grid")
+    .html('<div class="spinner-border" role="status"><span>Loading...</span></div>');
+
+  $.ajax({
+    url: API_POSTS_LIST_URL,
+    type: "GET",
+    dataType: "json",
+    success: function (data) {
+      console.log("Raw data received:", data);
+      if (!Array.isArray(data)) {
+        $list.html("<p>No media found or invalid data format.</p>");
+        return;
+      }
+
+      let videoCounter = 0;
+      const cards = [];
+
+      $.each(data, function (_, val) {
+        try {
+          // Extract fields (case-insensitive) + unwrap base64 if needed
+          let fileName = unwrapMaybeBase64(val.fileName || val.FileName || "");
+          let filePath = unwrapMaybeBase64(val.filePath || val.FilePath || "");
+          let userName = unwrapMaybeBase64(val.userName || val.UserName || "");
+          let userID   = unwrapMaybeBase64(val.userID   || val.UserID   || "");
+          const contentType = val.contentType || val.ContentType || "";
+
+          const fullUrl = buildBlobUrl(filePath);
+          const isVideo = isLikelyVideo({ contentType, url: fullUrl, fileName });
+
+          // Build a card for the grid
+          if (isVideo) {
+            videoCounter += 1;
+            const label = `video${videoCounter}`;
+
+            cards.push(`
+              <div class="media-card">
+                <div class="media-thumb">
+                  <!-- Simple poster area for video -->
+                  <a class="video-link" href="${fullUrl}" target="_blank" download="${fileName || label}">${label}</a>
+                </div>
+                <div class="media-body">
+                  <span class="media-title">${escapeHtml(fileName || "(unnamed)")}</span>
+                  <div>Uploaded by: ${escapeHtml(userName || "(unknown)")} (id: ${escapeHtml(userID || "(unknown)")})</div>
+                </div>
+              </div>
+            `);
+          } else {
+            // Try as image; if it fails, we’ll swap to a link
+            const safeLabel = escapeHtml(fileName || fullUrl);
+            cards.push(`
+              <div class="media-card">
+                <div class="media-thumb">
+                  <img src="${fullUrl}"
+                       alt="${safeLabel}"
+                       onerror="imageFallbackToLink(this, '${fullUrl.replace(/'/g,"\\'")}', '${safeLabel.replace(/'/g,"\\'")}')" />
+                </div>
+                <div class="media-body">
+                  <span class="media-title">${safeLabel}</span>
+                  <div>Uploaded by: ${escapeHtml(userName || "(unknown)")} (id: ${escapeHtml(userID || "(unknown)")})</div>
+                  <div class="image-error"></div>
+                </div>
+              </div>
+            `);
+          }
+        } catch (err) {
+          console.error("Error building card:", err, val);
+          cards.push(`
+            <div class="media-card">
+              <div class="media-body">
+                <span class="media-title" style="color:#b91c1c;">Error displaying this item</span>
+              </div>
+            </div>
+          `);
+        }
+      });
+
+      $list.html(cards.join(""));
+    },
+    error: (xhr, status, error) => {
+      console.error("Error fetching media:", status, error, xhr?.responseText);
+      $list.html("<p style='color:red;'>Error loading media. Check console.</p>");
+    },
+  });
+}
