@@ -417,8 +417,6 @@ function renderSinglePost(doc) {
 
           <div style="margin-top:8px;">
             <div><strong>id:</strong> <code>${escapeHtml(id)}</code></div>
-            <div><strong>pk:</strong> <code>${escapeHtml(currentPost?.pk || id)}</code></div>
-            <div><strong>status:</strong> ${escapeHtml(status)}</div>
           </div>
 
           <hr/>
