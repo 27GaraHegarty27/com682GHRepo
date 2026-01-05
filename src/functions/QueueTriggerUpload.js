@@ -6,6 +6,7 @@ const { app } = require('@azure/functions');
 let appInsights = null;
 let aiClient = null;
 
+//Insights
 function initAppInsightsOnce() {
   if (aiClient) return aiClient;
 
