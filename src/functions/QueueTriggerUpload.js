@@ -2,34 +2,41 @@
 
 const { app } = require('@azure/functions');
 
-// Optional Application Insights (won't crash if not installed / not configured)
-let appInsights = null;
+// -------- Application Insights (safe/optional) --------
 let aiClient = null;
+let aiStarted = false;
 
-//Insights
-function initAppInsightsOnce() {
+function getAppInsightsConnStr() {
+  // Your Azure setting is: APPLICATIONINSIGHTS_CONNECTION_STRING
+  // Keep fallbacks for older names just in case.
+  return (
+    process.env.APPLICATIONINSIGHTS_CONNECTION_STRING ||
+    process.env.APPINSIGHTS_CONNECTIONSTRING ||
+    process.env.APPINSIGHTS_CONNECTION_STRING ||
+    null
+  );
+}
+
+function initAppInsightsOnce(context) {
   if (aiClient) return aiClient;
+  if (aiStarted) return null; // prevent double-start attempts
+
+  const connStr = getAppInsightsConnStr();
+  if (!connStr) {
+    context?.log?.(
+      'App Insights not configured (missing APPLICATIONINSIGHTS_CONNECTION_STRING) -> telemetry skipped.'
+    );
+    return null;
+  }
 
   try {
-    // If you have the package installed, this will work:
+    // Ensure this dependency exists in your repo:
     // npm i applicationinsights
-    appInsights = require('applicationinsights');
+    const appInsights = require('applicationinsights');
 
-    // If the Function App has Application Insights enabled, one of these is usually present:
-    // - APPINSIGHTS_CONNECTIONSTRING (recommended)
-    // - APPINSIGHTS_INSTRUMENTATIONKEY (older)
-    const hasConn =
-      !!process.env.APPINSIGHTS_CONNECTIONSTRING ||
-      !!process.env.APPINSIGHTS_INSTRUMENTATIONKEY;
-
-    if (!hasConn) {
-      // No App Insights config -> run fine, just no custom telemetry
-      return null;
-    }
-
-    // Safe to call multiple times; SDK protects against double-start
+    // Passing the connection string explicitly is the most reliable approach.
     appInsights
-      .setup()
+      .setup(connStr)
       .setAutoCollectRequests(true)
       .setAutoCollectPerformance(true)
       .setAutoCollectExceptions(true)
@@ -39,13 +46,20 @@ function initAppInsightsOnce() {
       .start();
 
     aiClient = appInsights.defaultClient;
+    aiStarted = true;
+
+    context?.log?.('Connected to Application Insights ✅');
     return aiClient;
-  } catch (e) {
-    // SDK not installed -> run fine, just no custom telemetry
+  } catch (err) {
+    aiStarted = true; // don’t keep retrying every invocation
+    context?.log?.(
+      `App Insights SDK missing or failed to start -> telemetry skipped. (${err?.message || err})`
+    );
     return null;
   }
 }
 
+// -------- helpers --------
 function safeJsonParse(value) {
   if (value == null) return { raw: value };
   if (typeof value === 'object') return value;
@@ -58,40 +72,37 @@ function safeJsonParse(value) {
   }
 }
 
+function toNumberOrNull(v) {
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (typeof v === 'string') {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+// -------- Function --------
 app.storageQueue('QueueTriggerUpload', {
   queueName: 'upload-jobs',
-  connection: 'storcom682_STORAGE',
+  connection: 'storcom682_STORAGE', // keep this since your trigger is working
   handler: async (queueItem, context) => {
-    const client = initAppInsightsOnce();
+    const client = initAppInsightsOnce(context);
 
-    // The portal "Add message" can base64 encode; Functions runtime usually gives you decoded content,
-    // but queueItem can still arrive as string/object. Normalize it.
     const msg = safeJsonParse(queueItem);
 
-    // Your Logic App message shape looks like:
-    // { container: "media", path: "...", name: "...", size: "..." }
-    // But keep it flexible.
+    // Flexible fields (supports different message shapes)
     const container = msg.container ?? msg.blobContainer ?? 'unknown';
     const path = msg.path ?? msg.blobPath ?? msg.blobUrl ?? 'unknown';
     const name = msg.name ?? msg.blobName ?? 'unknown';
-    const sizeRaw = msg.size ?? msg.blobSize ?? null;
-    const sizeBytes =
-      typeof sizeRaw === 'number'
-        ? sizeRaw
-        : typeof sizeRaw === 'string'
-          ? Number(sizeRaw)
-          : null;
+    const sizeBytes = toNumberOrNull(msg.size ?? msg.blobSize);
 
-    // Correlation / identifiers (use whatever exists)
     const videoId = msg.video_id ?? msg.videoId ?? msg.id ?? '';
     const invocationId = context.invocationId || '';
 
-    // Normal Azure Function logs (visible in Logs + App Insights automatically if connected)
+    // Normal log proof (will show in Invocation logs)
     context.log('QueueTriggerUpload received:', msg);
 
-    // Custom Application Insights telemetry (used for Azure Dashboard charts)
     if (client) {
-      // Helpful dimensions for filtering in App Insights
       const props = {
         functionName: 'QueueTriggerUpload',
         invocationId,
@@ -101,13 +112,19 @@ app.storageQueue('QueueTriggerUpload', {
         blobPath: String(path),
       };
 
-      // 1) Track an event every time a message is processed
+      // Custom event
       client.trackEvent({
         name: 'UploadJobProcessed',
         properties: props,
       });
 
-      // 2) Track a custom metric (shows nicely in dashboards)
+      // Metrics
+      client.trackMetric({
+        name: 'UploadJobsCount',
+        value: 1,
+        properties: props,
+      });
+
       if (Number.isFinite(sizeBytes)) {
         client.trackMetric({
           name: 'UploadBlobSizeBytes',
@@ -116,25 +133,14 @@ app.storageQueue('QueueTriggerUpload', {
         });
       }
 
-      // 3) Track how many messages processed (counter-style metric)
-      client.trackMetric({
-        name: 'UploadJobsCount',
-        value: 1,
-        properties: props,
-      });
-
-      // Flush quickly so you see results in the portal sooner (especially on low traffic)
-      // (Non-blocking safety: give it a short await)
+      // Flush so it appears quickly in App Insights
       await new Promise((resolve) => {
         client.flush({ isAppCrashing: false, callback: resolve });
       });
-    } else {
-      context.log(
-        "App Insights not configured (no APPINSIGHTS_CONNECTIONSTRING / SDK missing) -> telemetry skipped."
-      );
-    }
 
-    // TODO: your “advanced processing” would go here later.
-    // For now, this proves CI/CD + queue trigger + App Insights telemetry are working.
+      context.log('UploadJobProcessed (telemetry sent)');
+    } else {
+      context.log('Telemetry skipped (App Insights not active).');
+    }
   },
 });
