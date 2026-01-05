@@ -1,0 +1,146 @@
+'use strict';
+
+const { app } = require('@azure/functions');
+
+// -------- Application Insights (safe/optional) --------
+let aiClient = null;
+let aiStarted = false;
+
+function getAppInsightsConnStr() {
+  // Your Azure setting is: APPLICATIONINSIGHTS_CONNECTION_STRING
+  // Keep fallbacks for older names just in case.
+  return (
+    process.env.APPLICATIONINSIGHTS_CONNECTION_STRING ||
+    process.env.APPINSIGHTS_CONNECTIONSTRING ||
+    process.env.APPINSIGHTS_CONNECTION_STRING ||
+    null
+  );
+}
+
+function initAppInsightsOnce(context) {
+  if (aiClient) return aiClient;
+  if (aiStarted) return null; // prevent double-start attempts
+
+  const connStr = getAppInsightsConnStr();
+  if (!connStr) {
+    context?.log?.(
+      'App Insights not configured (missing APPLICATIONINSIGHTS_CONNECTION_STRING) -> telemetry skipped.'
+    );
+    return null;
+  }
+
+  try {
+    // Ensure this dependency exists in your repo:
+    // npm i applicationinsights
+    const appInsights = require('applicationinsights');
+
+    // Passing the connection string explicitly is the most reliable approach.
+    appInsights
+      .setup(connStr)
+      .setAutoCollectRequests(true)
+      .setAutoCollectPerformance(true)
+      .setAutoCollectExceptions(true)
+      .setAutoCollectDependencies(true)
+      .setAutoCollectConsole(true, true)
+      .setSendLiveMetrics(false)
+      .start();
+
+    aiClient = appInsights.defaultClient;
+    aiStarted = true;
+
+    context?.log?.('Connected to Application Insights ✅');
+    return aiClient;
+  } catch (err) {
+    aiStarted = true; // don’t keep retrying every invocation
+    context?.log?.(
+      `App Insights SDK missing or failed to start -> telemetry skipped. (${err?.message || err})`
+    );
+    return null;
+  }
+}
+
+// -------- helpers --------
+function safeJsonParse(value) {
+  if (value == null) return { raw: value };
+  if (typeof value === 'object') return value;
+  if (typeof value !== 'string') return { raw: value };
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return { raw: value };
+  }
+}
+
+function toNumberOrNull(v) {
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (typeof v === 'string') {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+// -------- Function --------
+app.storageQueue('QueueTriggerUpload', {
+  queueName: 'upload-jobs',
+  connection: 'storcom682_STORAGE', // keep this since your trigger is working
+  handler: async (queueItem, context) => {
+    const client = initAppInsightsOnce(context);
+
+    const msg = safeJsonParse(queueItem);
+
+    // Flexible fields (supports different message shapes)
+    const container = msg.container ?? msg.blobContainer ?? 'unknown';
+    const path = msg.path ?? msg.blobPath ?? msg.blobUrl ?? 'unknown';
+    const name = msg.name ?? msg.blobName ?? 'unknown';
+    const sizeBytes = toNumberOrNull(msg.size ?? msg.blobSize);
+
+    const videoId = msg.video_id ?? msg.videoId ?? msg.id ?? '';
+    const invocationId = context.invocationId || '';
+
+    // Normal log proof (will show in Invocation logs)
+    context.log('QueueTriggerUpload received:', msg);
+
+    if (client) {
+      const props = {
+        functionName: 'QueueTriggerUpload',
+        invocationId,
+        videoId: String(videoId || ''),
+        container: String(container),
+        blobName: String(name),
+        blobPath: String(path),
+      };
+
+      // Custom event
+      client.trackEvent({
+        name: 'UploadJobProcessed',
+        properties: props,
+      });
+
+      // Metrics
+      client.trackMetric({
+        name: 'UploadJobsCount',
+        value: 1,
+        properties: props,
+      });
+
+      if (Number.isFinite(sizeBytes)) {
+        client.trackMetric({
+          name: 'UploadBlobSizeBytes',
+          value: sizeBytes,
+          properties: props,
+        });
+      }
+
+      // Flush so it appears quickly in App Insights
+      await new Promise((resolve) => {
+        client.flush({ isAppCrashing: false, callback: resolve });
+      });
+
+      context.log('UploadJobProcessed ✅ (telemetry sent)');
+    } else {
+      context.log('Telemetry skipped (App Insights not active).');
+    }
+  },
+});
