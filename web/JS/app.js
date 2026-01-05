@@ -203,7 +203,7 @@ function getImages() {
                 </div>
                 <div class="media-body">
                   <span class="media-title">${escapeHtml(title)}</span>
-                  <div>Status: ${escapeHtml(status)}</div>
+                  
                   <div class="hint">Click card to edit / delete</div>
                   <div class="image-error"></div>
                 </div>
@@ -421,7 +421,7 @@ function renderSinglePost(doc) {
 
           <hr/>
 
-          <div><strong>Edit title</strong></div>
+          <div><strong>Edit Caption</strong></div>
           <input id="editTitleInput" class="form-control mt-1" type="text" value="${escapeHtml(title)}" />
 
           <div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap;">

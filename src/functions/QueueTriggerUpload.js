@@ -2,7 +2,7 @@
 
 const { app } = require('@azure/functions');
 
-// -------- Application Insights (safe/optional) --------
+// ------- Application Insights (safe/optional) -------
 let aiClient = null;
 let aiStarted = false;
 
