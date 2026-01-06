@@ -124,9 +124,9 @@ function submitNewAsset() {
   });
 }
 
-// ==============================
+// ==================================
 // LIST (Cosmos-backed) - View Images
-// ==============================
+// ==================================
 function getImages() {
   const $list = $("#ImageList");
   $list
